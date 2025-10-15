@@ -1,0 +1,41 @@
+ai-code-agent/
+├── venv/
+├── src/
+│   ├── __init__.py
+│   ├── agent/              # LangGraph agent logic
+│   │   ├── __init__.py
+│   │   ├── state.py        # Agent state definition
+│   │   ├── graph.py        # LangGraph workflow
+│   │   └── nodes.py        # Individual node functions
+│   ├── execution/          # Code execution engine
+│   │   ├── __init__.py
+│   │   ├── executor.py     # Docker-based executor
+│   │   └── sandbox.py      # Security sandboxing
+│   ├── validation/         # Code validation modules
+│   │   ├── __init__.py
+│   │   ├── functional.py   # Functional tests
+│   │   ├── security.py     # Security checks
+│   │   └── quality.py      # Code quality checks
+│   ├── document/           # Document generation
+│   │   ├── __init__.py
+│   │   └── generator.py    # .docx generation
+│   └── utils/              # Shared utilities
+│       ├── __init__.py
+│       ├── logger.py       # Structured logging
+│       └── config.py       # Configuration management
+├── config/
+│   └── settings.yaml       # Application settings
+├── docker/
+│   ├── python.Dockerfile   # Python execution environment
+│   ├── javascript.Dockerfile
+│   └── java.Dockerfile
+├── data/
+│   ├── input/              # Input .txt files
+│   └── output/             # Generated .docx files
+├── logs/                   # Application logs
+├── tests/                  # Unit & integration tests
+├── requirements.txt
+├── .env                    # Environment variables
+├── .gitignore
+├── main.py                 # Entry point
+└── README.md

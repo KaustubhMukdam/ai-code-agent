@@ -1,0 +1,126 @@
+✅ Phase 1: Project Setup & Infrastructure
+
+✅ Phase 2: LangGraph Agent & State Management
+
+✅ Phase 3: Docker Code Execution Engine
+
+⏭️ Phase 4: Code Validation (Security, Quality, Functionality)
+
+⏭️ Phase 5: Feedback Loop & Iteration
+
+⏭️ Phase 6: Document Generation (.docx)
+
+⏭️ Phase 7: Production Features (API, Auth, Billing)
+
+⏭️ Phase 8: Deployment
+
+PHASE 1: Project Setup & Infrastructure
+What We're Building
+A rock-solid foundation with:
+
+Professional project structure
+
+Groq + LangGraph integration​
+
+Multi-language Docker execution environment​
+
+Database setup for state persistence
+
+Configuration management
+
+Environment variables
+
+PHASE 2: Agent State & LangGraph Workflow
+What We're Building
+In this phase, we'll create:
+
+Agent State Schema - The "brain memory" that tracks everything across iterations
+
+LangGraph Workflow - The decision-making graph with nodes and edges
+
+State Persistence - Checkpointing so we can resume failed generations
+
+Input Parser - Read .txt files and extract problem + language
+
+Step 2.2: Build LangGraph Workflow - The Agent Brain
+Now we're building the core intelligence - the LangGraph workflow that orchestrates everything!
+
+What We're Building:
+
+┌─────────────┐
+│   START     │
+└──────┬──────┘
+       │
+       ▼
+┌─────────────────┐
+│ Generate Code   │◄─────┐
+│  (LLM Node)     │      │
+└──────┬──────────┘      │
+       │                 │
+       ▼                 │
+┌─────────────────┐      │
+│ Execute Code    │      │
+│ (Docker Node)   │      │
+└──────┬──────────┘      │
+       │                 │
+       ▼                 │
+┌─────────────────┐      │
+│ Validate Code   │      │
+│ (Quality Check) │      │
+└──────┬──────────┘      │
+       │                 │
+       ▼                 │
+   ┌───────┐            │
+   │Valid? │            │
+   └───┬───┘            │
+       │                │
+   ┌───┴───┐            │
+   │       │            │
+  YES     NO            │
+   │       │            │
+   │   ┌───┴────────┐   │
+   │   │Max Retries?│   │
+   │   └───┬────────┘   │
+   │       │            │
+   │   ┌───┴───┐        │
+   │   │      │         │
+   │  NO     YES        │
+   │   │      │         │
+   │   │      ▼         │
+   │   │  ┌──────┐     │
+   │   │  │ SAVE │     │
+   │   │  │ FAIL │     │
+   │   │  └──────┘     │
+   │   │               │
+   │   └───────────────┘
+   │
+   ▼
+┌─────────────────┐
+│ Generate Doc    │
+│ (Success)       │
+└──────┬──────────┘
+       │
+       ▼
+    ┌────┐
+    │END │
+    └────┘
+
+PHASE 3: Docker Code Execution Engine
+Now we're building the most critical component - the execution engine that safely runs generated code in isolated containers!
+
+What We're Building:
+A production-grade execution system that:
+
+✅ Runs code in isolated Docker containers (no system access)
+
+✅ Supports 6 languages: Python, JavaScript, Java, C, C++, Go
+
+✅ Enforces timeouts (30 seconds max)
+
+✅ Captures stdout, stderr, and exit codes
+
+✅ Limits memory and CPU usage
+
+✅ Auto-cleans up containers after execution
+
+✅ Handles compilation for compiled languages (Java, C, C++, Go)
