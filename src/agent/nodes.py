@@ -9,6 +9,7 @@ from langchain_groq import ChatGroq
 from src.agent.state import CodeAgentState
 from src.utils.logger import get_logger
 from src.utils.config import get_settings
+from src.utils.docgen import generate_assignment_docx
 
 logger = get_logger(__name__)
 settings = get_settings()
@@ -47,6 +48,9 @@ class AgentNodes:
         
         # Build the prompt
         prompt = self._build_generation_prompt(state)
+
+        if state["iteration_count"] > 0 and state.get("review_feedback"):
+                prompt += f"\nCode Review Feedback: {state['review_feedback']}\nPlease fix ALL the issues and try again.\n"
         
         # Call LLM
         try:
@@ -77,6 +81,7 @@ class AgentNodes:
                 elapsed_ms=round(elapsed_ms, 2),
                 tokens=token_usage,
             )
+
             
             # Update state
             return {
@@ -184,8 +189,58 @@ Your response MUST start with actual {language} code, not with ```:
         # Last resort: return the whole response stripped
         logger.info("No markdown blocks found, using raw response")
         return response.strip()
-
     
+    def review_code_node(self, state: CodeAgentState) -> Dict[str, Any]:
+        reviewer = ChatGroq(
+            api_key=settings.groq_api_key,
+            model=settings.groq_model,
+            temperature=0.2,
+            max_tokens=2048
+        )
+        
+        requirements = state.get('requirements', 'No explicit requirements provided')
+        
+        review_prompt = f"""
+    You are a strict code reviewer for student programming assignments.
+
+    Original Question:
+    {state['problem_description']}
+
+    Requirements (MUST follow exactly):
+    {requirements}
+
+    Generated Code:
+    {state['generated_code']}
+
+    Execution Output:
+    {state.get('execution_output', 'Code not executed yet')}
+
+    Task:
+    Review the code and check if it:
+    1. Solves the problem correctly
+    2. Follows ALL the requirements listed above
+    3. Produces correct output
+
+    If the code meets all requirements and works correctly, respond with ONLY the word: PASS
+
+    If there are issues, list them briefly and clearly.
+    """
+        
+        review_result = reviewer.invoke(review_prompt)
+        
+        if hasattr(review_result, 'content'):
+            feedback = review_result.content
+        else:
+            feedback = str(review_result)
+        
+        logger.info(f"Review feedback: {feedback[:200]}...")  # Log for debugging
+        
+        return {
+            **state,
+            "review_feedback": feedback
+        }
+
+
     def execute_code_node(self, state: CodeAgentState) -> Dict[str, Any]:
         """
         Node 2: Execute code in Docker sandbox
@@ -234,37 +289,106 @@ Your response MUST start with actual {language} code, not with ```:
             }
 
     
-    def placeholder_validate_node(self, state: CodeAgentState) -> Dict[str, Any]:
+    def validate_code_node(self, state: 'CodeAgentState') -> dict:
         """
-        Node 3: Validate code quality, security, functionality
-        (PLACEHOLDER - We'll implement this in Phase 4)
+        Multi-language validation node.
+        Automatically runs language-appropriate quality/security tools,
+        aggregates errors, and formats feedback for the agent.
         """
-        logger.info("Validating code (placeholder)")
-        
-        # For now, just mark as valid
+        lang = state["target_language"]
+        code = state["generated_code"]
+        errors = []         # List of error/warning strings
+        details = {}        # Dict {tool: raw_output}
+
+        try:
+            if lang == "python":
+                from src.validation.quality import PythonValidator
+                validator = PythonValidator()
+                details = validator.validate(code)
+                # Collect errors from pylint, flake8, bandit, black
+                for tool in ["pylint", "flake8", "bandit", "black"]:
+                    out = details.get(tool, "")
+                    if out and "Error" in out or "warning" in out.lower() or "issue" in out.lower():
+                        errors.append(f"{tool}: {out.strip()[:200]}") # add first 200 chars for brevity
+
+            elif lang == "javascript":
+                from src.validation.js_quality import JavaScriptValidator
+                validator = JavaScriptValidator()
+                details = validator.validate(code)
+                out = details.get("eslint", "")
+                if out and ("error" in out.lower() or "problem" in out.lower() or "warning" in out.lower()):
+                    errors.append(f"eslint: {out.strip()[:200]}")
+
+            elif lang == "java":
+                from src.validation.java_quality import JavaValidator
+                validator = JavaValidator()
+                details = validator.validate(code)
+                out = details.get("javac", "")
+                if out and ("error" in out.lower() or "exception" in out.lower()):
+                    errors.append(f"javac: {out.strip()[:200]}")
+
+            elif lang == "c":
+                from src.validation.c_quality import CValidator
+                validator = CValidator()
+                details = validator.validate(code)
+                for tool in ["cppcheck", "gcc"]:
+                    out = details.get(tool, "")
+                    if out and ("error" in out.lower() or "failed" in out.lower() or "warning" in out.lower()):
+                        errors.append(f"{tool}: {out.strip()[:200]}")
+
+            elif lang == "cpp":
+                from src.validation.cpp_quality import CppValidator
+                validator = CppValidator()
+                details = validator.validate(code)
+                for tool in ["cppcheck", "g++"]:
+                    out = details.get(tool, "")
+                    if out and ("error" in out.lower() or "failed" in out.lower() or "warning" in out.lower()):
+                        errors.append(f"{tool}: {out.strip()[:200]}")
+
+            elif lang == "go":
+                from src.validation.go_quality import GoValidator
+                validator = GoValidator()
+                details = validator.validate(code)
+                for tool in ["govet", "gobuild"]:
+                    out = details.get(tool, "")
+                    if out and ("error" in out.lower() or "fail" in out.lower() or "warning" in out.lower()):
+                        errors.append(f"{tool}: {out.strip()[:200]}")
+
+            else:
+                errors.append(f"Unsupported language: {lang}")
+
+        except Exception as e:
+            logger.error(
+                "Validation failed for language.",
+                language=lang,
+                error=str(e),
+                code=code[:200] if code else ""
+            )
+            errors.append(f"Validation engine error: {str(e)}")
+
+        validation_passed = (len(errors) == 0)
+
+        # Add additional metadata flags for agent
+        feedback = "\n".join(errors) if errors else "No issues detected."
+        # (later you can parse tool outputs more deeply here)
         return {
-            "validation_passed": True,
-            "validation_errors": [],
-            "functional_valid": True,
-            "security_valid": True,
-            "quality_valid": True,
-            "performance_valid": True,
-            "validation_details": {"placeholder": True},
-            "status": "completed",
+            "validation_passed": validation_passed,
+            "validation_errors": errors,
+            "validation_details": details,
+            "functional_valid": validation_passed,
+            "security_valid": validation_passed,    # placeholder/expand later
+            "quality_valid": validation_passed,
+            "performance_valid": True,              # placeholder for now
+            "status": "completed" if validation_passed else "failed",
+            "current_feedback": feedback,
+            "feedback_history": state.get("feedback_history", []) + ([feedback] if feedback else []),
+            "iteration_count": state.get("iteration_count", 0) + 1,
         }
     
-    def placeholder_document_node(self, state: CodeAgentState) -> Dict[str, Any]:
-        """
-        Node 4: Generate .docx documentation
-        (PLACEHOLDER - We'll implement this in Phase 6)
-        """
-        logger.info("Generating documentation (placeholder)")
-        
-        output_path = settings.output_dir / f"output_{state['session_id'][:8]}.docx"
-        
-        return {
-            "output_file_path": str(output_path),
-            "final_success": True,
-            "end_time": time.strftime("%Y-%m-%dT%H:%M:%S"),
-            "status": "completed",
-        }
+    def generate_document_node(self, state: 'CodeAgentState') -> dict:
+        # This is a placeholder! Batch document is generated in the driver.
+        logger.info("Documentation node placeholder executed.")
+        return {**state, "docx_filename": None, "final_success": True, "status": "completed"}
+
+
+

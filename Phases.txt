@@ -124,3 +124,57 @@ A production-grade execution system that:
 ✅ Auto-cleans up containers after execution
 
 ✅ Handles compilation for compiled languages (Java, C, C++, Go)
+
+PHASE 4: CODE VALIDATION PIPELINE
+You're ready for the enterprise-level validation phase! This will ensure every code generated is not just correct, but secure, clean, and production-ready.
+
+Step 4.1: Architect the Validation Pipeline
+Validation Modules:
+
+Functional – Does the code run and produce expected results?
+
+Quality/Linting – Does it follow standards (PEP8, ESLint, clang-tidy)?
+
+Security – Is it safe (bandit for Python, cppcheck, etc.)?
+
+Performance – Optional: Does it run fast enough (timing, complexity)?
+
+Feedback Aggregator – Gathers errors and passes to agent for retries.
+
+Supported Languages:
+
+Python: pylint, flake8, bandit
+
+JavaScript: eslint
+
+Java: Checkstyle, possible custom script
+
+C/C++: cppcheck, clang-tidy
+
+Go: golint, staticcheck (if added later)
+
+Pipeline Logic:
+
+Execute relevant checks in Docker
+
+Aggregate errors/warnings
+
+Mark validation result (pass/fail) and add details to agent state
+
+If failed, send feedback for code regeneration
+
+PHASE 5: Feedback and Iteration Loop
+This phase lets your agent auto-correct itself:
+If code fails validation, the agent immediately feeds detailed error feedback to the LLM and regenerates, up to a max retry limit.
+
+1️⃣ Upgrade Agent State
+Ensure your state dict has:
+
+current_feedback (string, most recent error block)
+
+feedback_history ([str], cumulative errors so far)
+
+iteration_count and max_iterations
+
+You already have these in your CodeAgentState.
+

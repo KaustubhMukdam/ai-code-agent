@@ -23,27 +23,58 @@ class CodeGenerationGraph:
     
     def _build_graph(self) -> StateGraph:
         """Build the state graph with nodes and edges"""
-        
-        # Create graph
+
         workflow = StateGraph(CodeAgentState)
-        
+
         # Add nodes
         workflow.add_node("generate_code", self.nodes.generate_code_node)
+        workflow.add_node("review_code", self.nodes.review_code_node)
         workflow.add_node("execute_code", self.nodes.execute_code_node)
-        workflow.add_node("validate_code", self.nodes.placeholder_validate_node)
-        workflow.add_node("generate_document", self.nodes.placeholder_document_node)
-        
-        # Set entry point
+        workflow.add_node("validate_code", self.nodes.validate_code_node)
+        workflow.add_node("generate_document", self.nodes.generate_document_node)
+
         workflow.set_entry_point("generate_code")
-        
-        # Add edges (linear flow for now, we'll add conditional logic later)
-        workflow.add_edge("generate_code", "execute_code")
+
+        # Review conditional branch
+        def review_outcome(state: CodeAgentState):
+            # Safety: If we hit max iterations, force pass to avoid infinite loop
+            if state.get("iteration_count", 0) >= state.get("max_iterations", 3):
+                logger.warning("Max iterations reached in review loop, forcing pass")
+                return "pass"
+            
+            # Check for PASS in feedback
+            feedback = state.get("review_feedback", "")
+            if "PASS" in feedback.upper():  # Case-insensitive check
+                return "pass"
+            return "retry"
+
+        workflow.add_edge("generate_code", "review_code")
+
+        workflow.add_conditional_edges(
+            "review_code",
+            review_outcome,
+            {
+                "retry": "generate_code",
+                "pass": "execute_code"
+            }
+        )
+
         workflow.add_edge("execute_code", "validate_code")
         workflow.add_edge("validate_code", "generate_document")
         workflow.add_edge("generate_document", END)
-        
-        logger.info("Graph structure built with 4 nodes")
-        
+
+        # Validation node conditional (for retries/max)
+        workflow.add_conditional_edges(
+            "validate_code",
+            self.should_retry,
+            {
+                "retry": "generate_code",
+                "complete": "generate_document"
+            }
+        )
+
+        logger.info("Graph structure built with 5 nodes")
+
         return workflow
     
     def compile(self):
@@ -52,33 +83,14 @@ class CodeGenerationGraph:
         logger.info("Graph compiled successfully")
         return compiled
     
-    def should_retry(self, state: CodeAgentState) -> Literal["generate_code", "generate_document"]:
-        """
-        Decision function: Should we retry code generation?
-        
-        Returns:
-            - "generate_code" if we should retry
-            - "generate_document" if we should finish
-        """
-        
-        # If validation passed, go to document generation
+    def should_retry(self, state: CodeAgentState):
         if state["validation_passed"]:
             logger.info("Validation passed - proceeding to documentation")
-            return "generate_document"
-        
-        # If we've hit max iterations, save and finish
+            return "complete"
         if state["iteration_count"] >= state["max_iterations"]:
-            logger.warning(
-                "Max iterations reached",
-                iteration_count=state["iteration_count"],
-                max_iterations=state["max_iterations"],
-            )
-            return "generate_document"
-        
-        # Otherwise, retry
-        logger.info(
-            "Validation failed - retrying",
-            iteration=state["iteration_count"],
-            errors=state["validation_errors"],
-        )
-        return "generate_code"
+            logger.warning("Max iterations reached", ...)
+            return "complete"
+        logger.info("Validation failed - retrying", language=state.get("target_language"), iteration=state.get("iteration_count"))
+        return "retry"
+
+

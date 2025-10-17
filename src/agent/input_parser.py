@@ -162,3 +162,51 @@ class InputParser:
         except Exception as e:
             logger.error("Input validation failed", error=str(e))
             return False
+
+def parse_multi_question_file_with_meta(path):
+    meta = {}
+    questions = []
+    with open(path, 'r', encoding='utf-8') as f:
+        lines = [l.strip() for l in f if l.strip() != '']
+
+    idx = 0
+    # Parse meta section
+    while idx < len(lines):
+        if lines[idx].startswith("Question-"):
+            break
+        if ":" in lines[idx]:
+            key, val = [x.strip() for x in lines[idx].split(":", 1)]
+            meta[key.lower().replace(" ", "_")] = val
+        idx += 1
+
+    # Parse questions
+    while idx < len(lines):
+        if lines[idx].startswith("Question-"):
+            number = int(lines[idx].split("-")[1])
+            idx += 1
+            q_text = []
+            req_text = []
+            while idx < len(lines) and lines[idx] != "Requirements":
+                q_text.append(lines[idx])
+                idx += 1
+            idx += 1  # skip "Requirements"
+            while idx < len(lines) and not lines[idx].startswith("Question-"):
+                req_text.append(lines[idx])
+                idx += 1
+            lang = "python"
+            for req in req_text:
+                line = req.strip().lower()
+                # This handles 'language: cpp' or 'language - cpp'
+                if line.startswith("language"):
+                    for sep in [":", "-"]:
+                        if sep in line:
+                            lang = line.split(sep, 1)[1].strip()
+                            break
+            print(f"DEBUG: Question {number} parsed language: {lang}")
+            questions.append({
+                "number": number,
+                "question": "\n".join(q_text).strip(),
+                "requirements": req_text,
+                "language": lang,
+            })
+    return meta, questions
