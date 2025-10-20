@@ -14,12 +14,10 @@ engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
-
 class SubscriptionTier(enum.Enum):
     FREE = "free"
     PRO = "pro"
     ENTERPRISE = "enterprise"
-
 
 class User(Base):
     """Enhanced user model with subscription and billing"""
@@ -38,6 +36,12 @@ class User(Base):
     subscription_tier = Column(SQLEnum(SubscriptionTier), default=SubscriptionTier.FREE)
     subscription_start = Column(DateTime, nullable=True)
     subscription_end = Column(DateTime, nullable=True)
+    subscription_start_date = Column(DateTime, nullable=True)  # Added for stripe_service compatibility
+    subscription_end_date = Column(DateTime, nullable=True)    # Added for stripe_service compatibility
+    
+    # Stripe Integration
+    stripe_customer_id = Column(String, nullable=True)
+    stripe_subscription_id = Column(String, nullable=True)
     
     # Usage tracking
     total_jobs = Column(Integer, default=0)
@@ -51,7 +55,7 @@ class User(Base):
     # Relationships
     jobs = relationship("Job", back_populates="user")
     billing_records = relationship("BillingRecord", back_populates="user")
-
+    billing_transactions = relationship("BillingTransaction", back_populates="user")  # Added for stripe_service
 
 class Job(Base):
     """Enhanced job tracking with detailed metrics"""
@@ -60,7 +64,6 @@ class Job(Base):
     id = Column(Integer, primary_key=True, index=True)
     job_id = Column(String, unique=True, index=True, nullable=False)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    
     status = Column(String, default="queued")  # queued, processing, done, error
     input_file_path = Column(String)
     output_file_path = Column(String, nullable=True)
@@ -83,18 +86,15 @@ class Job(Base):
     # Relationships
     user = relationship("User", back_populates="jobs")
 
-
 class BillingRecord(Base):
     """Track all billing transactions"""
     __tablename__ = "billing_records"
     
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    
     amount = Column(Float, nullable=False)
     description = Column(String)
     transaction_type = Column(String)  # "charge", "refund", "subscription"
-    
     created_at = Column(DateTime, default=datetime.utcnow)
     
     # Stripe integration fields
@@ -103,6 +103,20 @@ class BillingRecord(Base):
     # Relationships
     user = relationship("User", back_populates="billing_records")
 
+class BillingTransaction(Base):
+    """Track Stripe billing transactions - used by stripe_service"""
+    __tablename__ = "billing_transactions"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    amount = Column(Float, nullable=False)
+    transaction_type = Column(String)  # "subscription", "subscription_renewal", "charge", "refund"
+    stripe_payment_intent_id = Column(String, nullable=True)
+    status = Column(String, default="pending")  # "pending", "completed", "failed"
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    user = relationship("User", back_populates="billing_transactions")
 
 class SystemMetrics(Base):
     """Track system-wide metrics over time"""
@@ -120,10 +134,8 @@ class SystemMetrics(Base):
     avg_processing_time = Column(Float, default=0.0)
     total_revenue = Column(Float, default=0.0)
 
-
 # Create all tables
 Base.metadata.create_all(bind=engine)
-
 
 def get_db():
     """Dependency for database sessions"""

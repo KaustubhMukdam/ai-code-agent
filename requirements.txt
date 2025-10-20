@@ -45,4 +45,21 @@ structlog==24.4.0
 python-docx
 watchdog
 
+streamlit 
+requests
+
+streamlit-authenticator
+plotly
+
+python-socketio 
+eventlet
+
+fastapi-mail 
+jinja2
+
+#Payment Gateway
+stripe 
+python-multipart
+
+
 #uvicorn app:app --reload
