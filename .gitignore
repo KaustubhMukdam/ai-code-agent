@@ -297,3 +297,5 @@ cython_debug/
 
 # Keep .gitkeep files to preserve empty directories
 !**/.gitkeep
+
+create_admin.py
