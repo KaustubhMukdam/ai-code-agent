@@ -57,6 +57,8 @@ eventlet
 fastapi-mail 
 jinja2
 
+gunicorn==21.2.0
+
 #Payment Gateway
 stripe 
 python-multipart
