@@ -1,278 +1,339 @@
-# AI Assignment Code Pipeline
+# AI Code Agent
 
-Production-ready AI-powered code generation SaaS platform with multi-user support, authentication, and automated document generation.
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.104+-009688.svg)](https://fastapi.tiangolo.com)
+[![Docker](https://img.shields.io/badge/docker-%230db7ed.svg?logo=docker&logoColor=white)](https://www.docker.com/)
 
-[![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=flat&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
-[![Python](https://img.shields.io/badge/Python-3.11+-3776AB?style=flat&logo=python&logoColor=white)](https://www.python.org/)
-[![Docker](https://img.shields.io/badge/Docker-2496ED?style=flat&logo=docker&logoColor=white)](https://www.docker.com/)
+Production-ready SaaS platform for secure, automatic code generation and grading — with user authentication, admin analytics, and a robust dual-AI pipeline.
 
-## 🚀 Features
+## 🌟 Features
 
-### Core AI Pipeline
+### Core Capabilities
+- **🤖 Secure AI Code Generation** - Supports Python, C++, Java, JavaScript, C, and Go
+- **🔍 Dual Agent Quality Control** - Review/Billet system ensures code quality and accuracy
+- **🔐 Enterprise Authentication** - JWT-based auth with Argon2 password hashing
+- **📊 Analytics Dashboard** - Admin dashboard with personal analytics for each user
+- **👥 Multi-User Support** - Role-based access control (Admin, User)
+- **🐳 Sandboxed Execution** - Docker-based code execution for security
+- **⚡ REST API** - Full-featured FastAPI backend with auto-generated docs
+- **🗄️ Database Migrations** - Alembic-powered schema management
+- **💳 Billing Ready** - Stripe integration prepared (database + minimal code)
+- **☁️ Cloud Native** - Scales instantly to Render, AWS, or any cloud platform
 
-- ✅ **Dual-Agent System**: Generator + Reviewer AI agents for code quality
-- ✅ **Multi-Language Support**: Python, C++, Java, JavaScript, C, Go
-- ✅ **Secure Execution**: Docker-based sandboxed code testing
-- ✅ **Smart Parsing**: Automatic question extraction from text files
-- ✅ **Document Generation**: Professional .docx output with formatting
-- ✅ **Error Recovery**: Automatic retry logic with feedback loops
+### The Dual-AI Pipeline
 
-### Production Features
+Our unique **Review/Billet Agent System** provides enterprise-grade code quality:
 
-- ✅ **REST API**: FastAPI with auto-generated documentation
-- ✅ **JWT Authentication**: Secure token-based user system
-- ✅ **Multi-User Support**: User isolation and data privacy
-- ✅ **Rate Limiting**: API protection (10 jobs/hour per user)
-- ✅ **Database Migrations**: Alembic for schema management
-- ✅ **Admin Dashboard**: System statistics and user management
-- ✅ **Analytics**: Personal usage tracking and metrics
-
-### Enterprise Ready
-
-- ✅ **Subscription Tiers**: Free, Pro, Enterprise (database ready)
-- ✅ **Billing Integration**: Stripe-ready payment system
-- ✅ **Usage Tracking**: Token consumption and cost monitoring
-- ✅ **Scalable Architecture**: Production-grade database schema
+1. **Generation Agent** - Creates initial code based on user requirements
+2. **Review Agent** - Analyzes, validates, and grades the generated code
+3. **Quality Assurance** - Ensures best practices, security, and correctness
+4. **Feedback Loop** - Continuous improvement through agent collaboration
 
 ## 🛠️ Tech Stack
 
-| Category | Technologies |
-|----------|-------------|
+| Category | Component |
+|----------|-----------|
 | **Backend** | FastAPI, SQLAlchemy, Alembic |
-| **AI/LLM** | LangGraph, Groq API (Llama 3.3 70B) |
+| **Agents/LLM** | LangGraph, Groq API (Llama 3) |
 | **Security** | JWT, Argon2, SlowAPI (rate limiting) |
-| **Execution** | Docker, multi-language containers |
-| **Documents** | python-docx, custom formatting |
-| **Database** | SQLite (dev), PostgreSQL (prod) |
+| **Execution** | Docker (sandboxed) |
+| **Database (Dev)** | SQLite |
+| **Database (Prod)** | PostgreSQL (managed) |
+| **Infrastructure** | Docker, Docker Compose |
+| **Frontend*** | Streamlit (planned), React/Next.js (roadmap) |
 
-## 📦 Installation
+*Frontend currently in development
+
+## 🚀 Quick Start
 
 ### Prerequisites
+- Python 3.8+
+- Docker & Docker Compose
+- Git
 
-- Python 3.11+
-- Docker
-- Groq API key ([Get one here](https://console.groq.com/))
-
-### Setup
+### 1. Clone & Setup
 
 ```bash
-# 1. Clone repository
 git clone https://github.com/KaustubhMukdam/ai-code-agent.git
 cd ai-code-agent
 
-# 2. Create virtual environment
+# Create virtual environment
 python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
 
-# 3. Install dependencies
+# Activate virtual environment
+# Windows:
+venv\Scripts\activate
+# Linux/Mac:
+source venv/bin/activate
+
+# Install dependencies
 pip install -r requirements.txt
 
-# 4. Configure environment
+# Setup environment variables
 cp .env.example .env
-# Edit .env and add your GROQ_API_KEY
+# Edit .env with your API keys and secrets (NEVER commit this file!)
+```
 
-# 5. Initialize database
+### 2. Configure Environment Variables
+
+Edit `.env` with your credentials:
+
+```env
+# API Keys
+GROQ_API_KEY=your_groq_api_key_here
+
+# Database
+DATABASE_URL=sqlite:///./data/ai_code_agent.db  # Dev
+# DATABASE_URL=postgresql://user:pass@host:5432/dbname  # Prod
+
+# Security
+SECRET_KEY=your-secret-key-min-32-chars
+JWT_ALGORITHM=HS256
+ACCESS_TOKEN_EXPIRE_MINUTES=30
+
+# Stripe (optional)
+STRIPE_SECRET_KEY=your_stripe_key_here
+STRIPE_PUBLISHABLE_KEY=your_stripe_pub_key_here
+```
+
+### 3. Run with Docker Compose
+
+```bash
+# Start all services (PostgreSQL + API)
+docker-compose up --build
+
+# API will be available at:
+# - API: http://localhost:8000
+# - Docs: http://localhost:8000/docs
+# - ReDoc: http://localhost:8000/redoc
+```
+
+### 4. Apply Database Migrations
+
+```bash
+# Run migrations
 alembic upgrade head
 
-# 6. Start server
-uvicorn app:app --reload
-```
-
-### Access
-
-- **API Docs**: http://localhost:8000/docs
-- **Admin Panel**: http://localhost:8000/admin/stats (requires admin user)
-
-## 🎯 Quick Start
-
-### 1. Register a User
-
-```bash
-curl -X POST "http://localhost:8000/register" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "username": "testuser",
-    "email": "test@example.com",
-    "password": "securepass123"
-  }'
-```
-
-### 2. Login & Get Token
-
-```bash
-curl -X POST "http://localhost:8000/token" \
-  -F "username=testuser" \
-  -F "password=securepass123"
-```
-
-### 3. Submit Assignment
-
-```bash
-curl -X POST "http://localhost:8000/submit-assignment" \
-  -H "Authorization: Bearer YOUR_TOKEN" \
-  -F "file=@assignment.txt"
-```
-
-### 4. Check Status
-
-```bash
-curl "http://localhost:8000/status/{job_id}" \
-  -H "Authorization: Bearer YOUR_TOKEN"
-```
-
-### 5. Download Result
-
-```bash
-curl "http://localhost:8000/download/{job_id}" \
-  -H "Authorization: Bearer YOUR_TOKEN" \
-  -o result.docx
+# Create a new migration (after model changes)
+alembic revision --autogenerate -m "Description of changes"
 ```
 
 ## 📁 Project Structure
 
-```text
+```
 ai-code-agent/
 ├── src/
-│   ├── agent/          # AI agent logic
-│   │   ├── nodes.py    # Generator, Reviewer, Executor
-│   │   ├── graph.py    # LangGraph workflow
-│   │   └── state.py    # State management
-│   ├── api/            # FastAPI endpoints
-│   │   ├── models.py   # Database models
-│   │   ├── auth.py     # JWT authentication
-│   │   ├── admin.py    # Admin endpoints
-│   │   └── rate_limit.py
-│   ├── utils/          # Utilities
-│   │   ├── executor.py # Docker code execution
-│   │   ├── doc_generator.py
-│   │   └── input_parser.py
-├── alembic/            # Database migrations
-├── docker/             # Dockerfile for languages
-├── data/               # Database & files
-├── app.py              # Main FastAPI app
-├── requirements.txt    # Python dependencies
-└── README.md           # This file
+│   ├── agents/          # AI agent logic (Review/Billet)
+│   ├── api/             # FastAPI routes
+│   ├── models/          # SQLAlchemy models
+│   ├── schemas/         # Pydantic schemas
+│   ├── utils/           # Helper functions
+│   └── security/        # Auth & security
+├── alembic/             # Database migrations
+│   ├── versions/        # Migration scripts
+│   └── env.py
+├── data/                # Input/output & SQLite (dev)
+├── frontend/            # Streamlit app (planned)
+├── tests/               # Unit & integration tests
+├── app.py               # FastAPI entry point
+├── docker-compose.yml   # Multi-service orchestration
+├── Dockerfile.backend   # Backend container
+├── Dockerfile.frontend  # Frontend container
+├── requirements.txt     # Python dependencies
+├── .env.example         # Environment template
+└── README.md
 ```
 
-## 🔒 Security
+## ☁️ Cloud Deployment
 
-- **JWT Tokens**: 24-hour expiry, HS256 algorithm
-- **Password Hashing**: Argon2 (OWASP recommended)
-- **Rate Limiting**: SlowAPI protection on all endpoints
-- **Docker Isolation**: Code executes in sandboxed containers
-- **SQL Injection**: Protected via SQLAlchemy ORM
-- **Input Validation**: Pydantic models for all requests
+### Backend (Render.com)
 
-## 📊 API Endpoints
+1. **Create Web Service**
+   - Link your GitHub repository to Render
+   - Select `Dockerfile.backend` as the build file
+   - Set build command: `docker build -f Dockerfile.backend -t backend .`
 
-### Authentication
+2. **Configure Environment Variables**
+   - Navigate to Render Dashboard → Your Service → Environment
+   - Add all variables from `.env.example`
+   - Never commit secrets to version control!
 
-- `POST /register` - Create new user
-- `POST /token` - Login (get JWT token)
-- `GET /me` - Get current user info
+3. **Setup PostgreSQL**
+   - Add Render's Managed PostgreSQL service
+   - Copy the internal `DATABASE_URL` to your environment variables
+   - Run migrations: `alembic upgrade head`
 
-### Assignments
+4. **Deploy**
+   - Push to your main branch
+   - Render auto-deploys on every commit
+   - Monitor logs via Render dashboard
 
-- `POST /submit-assignment` - Upload assignment file
-- `GET /status/{job_id}` - Check job status
-- `GET /download/{job_id}` - Download result document
-- `GET /my-jobs` - List all your jobs
+### Frontend (Streamlit Cloud)
 
-### Analytics
+**Option 1: Streamlit Cloud (Recommended for MVP)**
+```bash
+# Create separate repo for frontend or use monorepo
+cd frontend
+git init
+git remote add origin <your-frontend-repo>
 
-- `GET /analytics/usage` - Personal usage statistics
+# Deploy via Streamlit Cloud dashboard
+# Set backend URL: https://<your-backend>.onrender.com
+```
 
-### Admin (requires admin role)
+**Option 2: Render (Full Control)**
+- Create another Web Service
+- Select `Dockerfile.frontend`
+- Configure `BACKEND_API_URL` environment variable
 
-- `GET /admin/stats` - System-wide statistics
-- `GET /admin/users` - List all users
-- `GET /admin/jobs` - View all jobs
-- `POST /admin/users/{id}/toggle-active` - Enable/disable user
+## 🔌 API Documentation
 
-## 🗄️ Database Schema
+Once running, visit:
+- **Swagger UI**: `http://localhost:8000/docs`
+- **ReDoc**: `http://localhost:8000/redoc`
 
-### Users Table
+### Key Endpoints
 
-- Authentication (username, email, password)
-- Subscription (tier, start/end dates)
-- Usage tracking (jobs, tokens, spending)
-- Quotas (monthly limits)
+```
+POST   /api/auth/register     # Register new user
+POST   /api/auth/login        # Login and get JWT token
+POST   /api/code/generate     # Generate code from prompt
+GET    /api/code/history      # Get generation history
+POST   /api/code/execute      # Execute code in sandbox
+GET    /api/admin/analytics   # Admin dashboard data
+GET    /api/user/stats        # Personal analytics
+```
 
-### Jobs Table
-
-- Status tracking (queued, processing, done, error)
-- Metrics (processing time, tokens, iterations)
-- Cost tracking
-- File paths (input/output)
-
-### Billing Records (ready for Stripe)
-
-- Transactions (charges, refunds, subscriptions)
-- Stripe payment IDs
-
-## 🔄 Database Migrations
+## 🧪 Testing
 
 ```bash
-# Create new migration after model changes
-alembic revision --autogenerate -m "Description"
+# Install test dependencies
+pip install pytest pytest-cov pytest-asyncio
 
-# Apply migrations
-alembic upgrade head
+# Run all tests
+pytest
 
-# Rollback migration
-alembic downgrade -1
+# Run with coverage
+pytest --cov=src --cov-report=html
 
-# View migration history
-alembic history
+# View coverage report
+open htmlcov/index.html
 ```
 
-## 📈 Status & Roadmap
+## 🔒 Security Best Practices
 
-| Phase | Feature | Status |
-|-------|---------|--------|
-| 1-6 | Core AI Pipeline | ✅ Complete |
-| 7 | Production Backend | ✅ Complete |
-| 8 | Frontend UI | 🟡 Planned |
-| 9 | Billing Integration | 🟡 Ready |
-| 10 | Cloud Deployment | 🟡 Ready |
+### Production Checklist
+- ✅ Use managed PostgreSQL (never SQLite in production)
+- ✅ Enable HTTPS (Render provides free SSL)
+- ✅ Set strong `SECRET_KEY` (min 32 characters)
+- ✅ Use environment variables for all secrets
+- ✅ Enable rate limiting (SlowAPI configured)
+- ✅ Docker sandboxing for code execution
+- ✅ JWT token expiration configured
+- ✅ Argon2 password hashing
+- ✅ SQL injection protection (SQLAlchemy ORM)
+- ✅ CORS properly configured
 
-## 🎨 Coming Soon
+### Never Commit
+- `.env` files
+- API keys or tokens
+- Database credentials
+- Private keys
 
-- 🖥️ **Web Dashboard**: React/Next.js UI
-- 💳 **Stripe Billing**: Automated payment processing
-- 📊 **Analytics Charts**: Usage graphs and insights
-- 🌐 **Cloud Deployment**: AWS/Railway hosting
-- 📧 **Email Notifications**: Job completion alerts
-- 🔔 **Webhooks**: Integration with external systems
+## 🐛 Troubleshooting
+
+### Common Issues
+
+**Docker build fails**
+```bash
+# Clear Docker cache
+docker-compose down -v
+docker system prune -a
+docker-compose up --build
+```
+
+**Database connection errors**
+```bash
+# Check if PostgreSQL is running
+docker-compose ps
+
+# Verify DATABASE_URL format
+# PostgreSQL: postgresql://user:password@host:5432/database
+# SQLite: sqlite:///./data/ai_code_agent.db
+```
+
+**Migration errors**
+```bash
+# Reset migrations (development only!)
+rm -rf alembic/versions/*
+alembic revision --autogenerate -m "Initial migration"
+alembic upgrade head
+```
+
+**Port already in use**
+```bash
+# Change port in docker-compose.yml or:
+docker-compose down
+lsof -ti:8000 | xargs kill -9  # Kill process on port 8000
+```
+
+## 🗺️ Roadmap
+
+- ✅ Backend API + Database (Production Ready)
+- ✅ Dual-AI Agent System
+- ✅ JWT Authentication
+- ✅ Docker Sandboxing
+- 🟡 Streamlit Frontend (In Progress)
+- 🟡 React/Next.js UI (Planned)
+- 🟡 Stripe Billing Integration (90% Complete)
+- ⬜ WebSocket Support for Real-time Updates
+- ⬜ Code Collaboration Features
+- ⬜ Advanced Analytics & Insights
+- ⬜ API Rate Limiting Tiers
+- ⬜ Multi-language Support for UI
 
 ## 🤝 Contributing
 
-Contributions welcome! Please:
+We welcome contributions! Here's how:
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Submit a pull request
+1. **Fork** the repository
+2. **Create** a feature branch (`git checkout -b feature/AmazingFeature`)
+3. **Commit** your changes (`git commit -m 'Add some AmazingFeature'`)
+4. **Push** to the branch (`git push origin feature/AmazingFeature`)
+5. **Open** a Pull Request
+
+### Development Guidelines
+- Follow PEP 8 style guide
+- Add tests for new features
+- Update documentation
+- Keep commits atomic and meaningful
 
 ## 📄 License
 
-MIT License - see LICENSE file for details
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## 👨‍💻 Author
+## 👥 Authors
 
-**Kaustubh Devidas Mukdam**
-
-Built with ❤️ using FastAPI, LangGraph, and Groq
-
-*October 2025*
+**Kaustubh Mukdam**
+- GitHub: [@KaustubhMukdam](https://github.com/KaustubhMukdam)
+- Repository: [ai-code-agent](https://github.com/KaustubhMukdam/ai-code-agent)
 
 ## 🙏 Acknowledgments
 
-- [LangGraph](https://www.langchain.com/langgraph) - Agent orchestration
-- [Groq](https://groq.com/) - Fast LLM inference
-- [FastAPI](https://fastapi.tiangolo.com/) - Modern Python web framework
-- [Alembic](https://alembic.sqlalchemy.org/) - Database migrations
+- [FastAPI](https://fastapi.tiangolo.com/) - Modern web framework
+- [LangGraph](https://github.com/langchain-ai/langgraph) - AI agent orchestration
+- [Groq](https://groq.com/) - Lightning-fast LLM inference
+- [Render](https://render.com/) - Simple cloud deployment
+
+## 📧 Support
+
+- **Issues**: [GitHub Issues](https://github.com/KaustubhMukdam/ai-code-agent/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/KaustubhMukdam/ai-code-agent/discussions)
+- **Email**: kaustubh@example.com (Update with your actual email)
 
 ---
 
-⭐ If this project helped you, consider giving it a star!
+⭐ **Star this repo** if you find it helpful!
+
+Made with ❤️ by [Kaustubh Mukdam](https://github.com/KaustubhMukdam)
