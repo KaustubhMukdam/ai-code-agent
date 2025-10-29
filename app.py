@@ -1,4 +1,4 @@
-from fastapi import FastAPI, UploadFile, File, BackgroundTasks, HTTPException, Depends, status, Request, Form
+from fastapi import FastAPI, UploadFile, File, BackgroundTasks, HTTPException, Depends, status, Request, Form, APIRouter
 from fastapi.responses import FileResponse
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
@@ -10,7 +10,7 @@ import shutil
 import asyncio
 
 from src.agent.runner import run_batch_job
-from src.api.models import User, Job, BillingTransaction, get_db
+from src.api.models import User, Job, get_db
 from src.api.auth import (
     get_password_hash,
     authenticate_user, 
@@ -26,13 +26,8 @@ from src.api.admin import router as admin_router
 from src.utils.language_config import get_language_config, get_supported_languages
 from src.utils.email_service import send_welcome_email, send_job_completion_email
 
-from src.utils.stripe_service import (
-    StripeService, 
-    can_user_access_language, 
-    can_user_submit_job,
-    get_user_plan_details,
-    SUBSCRIPTION_PLANS
-)
+
+from src.api.auth import verify_password
 
 
 # Define base folders
@@ -49,6 +44,8 @@ app = FastAPI(
 )
 
 app.include_router(admin_router)
+
+router = APIRouter()
 
 # Add rate limiter
 app.state.limiter = limiter
@@ -70,16 +67,37 @@ class UserStats(BaseModel):
     email: str
     total_jobs: int
     total_jobs_this_month: int
-    monthly_job_limit: int
     total_tokens_used: int
     total_spent: float
-    subscription_tier: str
     created_at: datetime
     is_active: bool
     
     class Config:
         from_attributes = True
 
+class PasswordChangeRequest(BaseModel):
+    old_password: str
+    new_password: str
+
+@router.post("/me/change-password")
+async def change_password(
+    req: PasswordChangeRequest,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    # Verify current password
+    if not verify_password(req.old_password, current_user.hashed_password):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Current password is incorrect"
+        )
+    # Set new password
+    current_user.hashed_password = get_password_hash(req.new_password)
+    db.add(current_user)
+    db.commit()
+    return {"success": True, "message": "Password changed successfully"}
+
+app.include_router(router)
 
 # Enhanced background task processor
 def process_assignment_job(job_id: str, input_path: str, user_id: int, language: str = "python"):
@@ -230,14 +248,11 @@ async def read_users_me(
         "email": current_user.email,
         "total_jobs": total_jobs,
         "total_jobs_this_month": jobs_this_month,
-        "monthly_job_limit": current_user.monthly_job_limit,
         "total_tokens_used": current_user.total_tokens_used,
         "total_spent": current_user.total_spent,
-        "subscription_tier": current_user.subscription_tier.value,
-        "subscription_start_date": current_user.subscription_start_date,
-        "subscription_end_date": current_user.subscription_end_date,
         "created_at": current_user.created_at,
-        "is_active": current_user.is_active
+        "is_active": current_user.is_active,
+        "is_admin": current_user.is_admin
     }
 
 
@@ -259,19 +274,6 @@ async def submit_assignment(
     # Validate language
     if language not in get_supported_languages():
         raise HTTPException(status_code=400, detail=f"Unsupported language. Supported: {', '.join(get_supported_languages())}")
-    
-    # 💰 NEW: Check subscription limits
-    can_submit, reason = can_user_submit_job(current_user)
-    if not can_submit:
-        raise HTTPException(status_code=402, detail=reason)  # 402 Payment Required
-    
-    # 💰 NEW: Check language access
-    if not can_user_access_language(current_user, language):
-        plan_name = SUBSCRIPTION_PLANS[current_user.subscription_tier.value]["name"]
-        raise HTTPException(
-            status_code=402, 
-            detail=f"Your {plan_name} doesn't support {language}. Upgrade to Pro or Enterprise."
-        )
     
     # Create job ID and save file
     job_id = str(uuid.uuid4())
@@ -298,17 +300,11 @@ async def submit_assignment(
     if background_tasks:
         background_tasks.add_task(process_assignment_job, job_id, input_path, current_user.id, language)
     
-    plan_details = get_user_plan_details(current_user)
-    
     return {
         "job_id": job_id, 
         "status": "queued",
         "language": language,
-        "message": f"Assignment queued for {get_language_config(language).name} processing",
-        "usage": {
-            "jobs_used": plan_details["jobs_used"],
-            "jobs_remaining": plan_details["jobs_remaining"]
-        }
+        "message": f"Assignment queued for {get_language_config(language).name} processing"
     }
 
 @app.get("/status/{job_id}", tags=["Jobs"])
@@ -387,103 +383,6 @@ async def get_usage_analytics(
         "success_rate": round((successful_jobs / total_jobs * 100) if total_jobs > 0 else 0.0, 2),
         "total_tokens_used": current_user.total_tokens_used,
         "total_spent": current_user.total_spent,
-        "subscription_tier": current_user.subscription_tier.value,
-        "monthly_limit": current_user.monthly_job_limit,
         "jobs_this_month": current_user.total_jobs_this_month
     }
 
-# ===== BILLING & SUBSCRIPTION ENDPOINTS =====
-
-@app.get("/subscription/plans", tags=["Billing"])
-async def get_subscription_plans():
-    """Get available subscription plans"""
-    plans = []
-    for key, plan in SUBSCRIPTION_PLANS.items():
-        plans.append({
-            "key": key,
-            "name": plan["name"],
-            "price": plan["price"],
-            "monthly_jobs": plan["monthly_jobs"],
-            "languages": plan["languages"],
-            "priority": plan["priority"]
-        })
-    return {"plans": plans}
-
-@app.post("/subscription/checkout", tags=["Billing"])
-async def create_checkout_session(
-    plan: str,
-    current_user: User = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
-):
-    """Create Stripe checkout session for subscription upgrade"""
-    if plan not in SUBSCRIPTION_PLANS:
-        raise HTTPException(status_code=400, detail="Invalid subscription plan")
-    
-    if plan == "free":
-        raise HTTPException(status_code=400, detail="Cannot checkout for free plan")
-    
-    success_url = "http://localhost:8501?upgrade=success"  # Update with your domain
-    cancel_url = "http://localhost:8501?upgrade=canceled"
-    
-    result = StripeService.create_checkout_session(
-        current_user.id, 
-        plan, 
-        success_url, 
-        cancel_url
-    )
-    
-    if "error" in result:
-        raise HTTPException(status_code=500, detail=result["error"])
-    
-    return result
-
-@app.get("/subscription/portal", tags=["Billing"])
-async def customer_portal(
-    current_user: User = Depends(get_current_active_user)
-):
-    """Create customer portal session for subscription management"""
-    if not current_user.stripe_customer_id:
-        raise HTTPException(status_code=400, detail="No active subscription found")
-    
-    return_url = "http://localhost:8501"  # Update with your domain
-    result = StripeService.create_customer_portal_session(
-        current_user.stripe_customer_id, 
-        return_url
-    )
-    
-    if "error" in result:
-        raise HTTPException(status_code=500, detail=result["error"])
-    
-    return result
-
-@app.get("/billing/details", tags=["Billing"])
-async def get_billing_details(
-    current_user: User = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
-):
-    """Get user's billing information and plan details"""
-    plan_details = get_user_plan_details(current_user)
-    
-    # Get recent transactions
-    transactions = db.query(BillingTransaction).filter(
-        BillingTransaction.user_id == current_user.id
-    ).order_by(BillingTransaction.created_at.desc()).limit(10).all()
-    
-    return {
-        "plan": plan_details,
-        "transactions": transactions,
-        "total_spent": current_user.total_spent
-    }
-
-@app.post("/webhooks/stripe", tags=["Webhooks"])
-async def stripe_webhook(request: Request):
-    """Handle Stripe webhook events"""
-    payload = await request.body()
-    sig_header = request.headers.get('stripe-signature')
-    
-    result = StripeService.handle_webhook(payload.decode(), sig_header)
-    
-    if "error" in result:
-        raise HTTPException(status_code=400, detail=result["error"])
-    
-    return {"status": "success"}

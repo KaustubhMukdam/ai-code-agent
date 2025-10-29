@@ -4,11 +4,12 @@ Admin dashboard endpoints
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-from src.api.models import User, Job, BillingRecord, SystemMetrics, get_db
+from src.api.models import User, Job, SystemMetrics, get_db
 from src.api.auth import get_current_active_user
 from datetime import datetime, timedelta
 from typing import List
 from pydantic import BaseModel
+from typing import List
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
 
@@ -19,10 +20,13 @@ class UserAdmin(BaseModel):
     username: str
     email: str
     is_active: bool
-    subscription_tier: str
     total_jobs: int
     total_spent: float
     created_at: datetime
+    is_admin: bool
+
+    class Config:
+        orm_mode = True
 
 
 class SystemStats(BaseModel):
@@ -45,6 +49,8 @@ def require_admin(current_user: User = Depends(get_current_active_user)):
     return current_user
 
 
+
+
 @router.get("/users", response_model=List[UserAdmin])
 async def get_all_users(
     skip: int = 0,
@@ -52,9 +58,9 @@ async def get_all_users(
     admin: User = Depends(require_admin),
     db: Session = Depends(get_db)
 ):
-    """Get all users (admin only)"""
     users = db.query(User).offset(skip).limit(limit).all()
     return users
+
 
 
 @router.get("/stats", response_model=SystemStats)

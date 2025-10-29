@@ -9,15 +9,10 @@ import os
 import enum
 
 # Database setup
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./data/app.db")
-engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:mysecretpassword@localhost:5432/aiagent")
+engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
-
-class SubscriptionTier(enum.Enum):
-    FREE = "free"
-    PRO = "pro"
-    ENTERPRISE = "enterprise"
 
 class User(Base):
     """Enhanced user model with subscription and billing"""
@@ -32,30 +27,15 @@ class User(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     last_login = Column(DateTime, nullable=True)
     
-    # Subscription & Billing
-    subscription_tier = Column(SQLEnum(SubscriptionTier), default=SubscriptionTier.FREE)
-    subscription_start = Column(DateTime, nullable=True)
-    subscription_end = Column(DateTime, nullable=True)
-    subscription_start_date = Column(DateTime, nullable=True)  # Added for stripe_service compatibility
-    subscription_end_date = Column(DateTime, nullable=True)    # Added for stripe_service compatibility
-    
-    # Stripe Integration
-    stripe_customer_id = Column(String, nullable=True)
-    stripe_subscription_id = Column(String, nullable=True)
-    
     # Usage tracking
     total_jobs = Column(Integer, default=0)
     total_jobs_this_month = Column(Integer, default=0)
     total_tokens_used = Column(Integer, default=0)
     total_spent = Column(Float, default=0.0)
     
-    # Quota limits
-    monthly_job_limit = Column(Integer, default=5)  # Free tier: 5/month
     
     # Relationships
     jobs = relationship("Job", back_populates="user")
-    billing_records = relationship("BillingRecord", back_populates="user")
-    billing_transactions = relationship("BillingTransaction", back_populates="user")  # Added for stripe_service
 
 class Job(Base):
     """Enhanced job tracking with detailed metrics"""
@@ -85,38 +65,6 @@ class Job(Base):
     
     # Relationships
     user = relationship("User", back_populates="jobs")
-
-class BillingRecord(Base):
-    """Track all billing transactions"""
-    __tablename__ = "billing_records"
-    
-    id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    amount = Column(Float, nullable=False)
-    description = Column(String)
-    transaction_type = Column(String)  # "charge", "refund", "subscription"
-    created_at = Column(DateTime, default=datetime.utcnow)
-    
-    # Stripe integration fields
-    stripe_payment_id = Column(String, nullable=True)
-    
-    # Relationships
-    user = relationship("User", back_populates="billing_records")
-
-class BillingTransaction(Base):
-    """Track Stripe billing transactions - used by stripe_service"""
-    __tablename__ = "billing_transactions"
-    
-    id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    amount = Column(Float, nullable=False)
-    transaction_type = Column(String)  # "subscription", "subscription_renewal", "charge", "refund"
-    stripe_payment_intent_id = Column(String, nullable=True)
-    status = Column(String, default="pending")  # "pending", "completed", "failed"
-    created_at = Column(DateTime, default=datetime.utcnow)
-    
-    # Relationships
-    user = relationship("User", back_populates="billing_transactions")
 
 class SystemMetrics(Base):
     """Track system-wide metrics over time"""
